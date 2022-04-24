@@ -1,7 +1,7 @@
 import Image from "next/image";
-import { useEffect, useState } from "react";
+import { KeyboardEvent, useCallback, useEffect, useState } from "react";
 import { Conversation, Message } from "types/api";
-import { useConversations, useMessages } from "../../../utils/hooks";
+import { useConversations, useMessages, useSendMessage } from "../../../utils/hooks";
 import OwnerMessage from "./OwnerMessage";
 import PartnerMessage from "./PartnerMessage";
 
@@ -11,9 +11,38 @@ const formatDate = (createdAt: string) => {
 };
 
 const Conversation = ({ goAccountSelection, accountId }: { accountId: string; goAccountSelection: () => void }) => {
+  const [typingMessage, setTypingMessage] = useState("");
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
   const conversations = useConversations({ accountId });
-  const messages = useMessages({ accountId, conversationId: selectedConversation?.id });
+  const {
+    data: messages,
+    loading: gettingMessages,
+    fetchData: getMessages,
+  } = useMessages({ accountId, conversationId: selectedConversation?.id, autoFetch: true });
+
+  const {
+    fetchData: sendMessage,
+    data: message,
+    loading: sendingMessage,
+  } = useSendMessage({
+    accountId,
+    conversationId: selectedConversation?.id,
+    onCompleted: () => {
+      setTypingMessage("");
+      getMessages();
+    },
+  });
+
+  const handleSendMessage = useCallback(() => sendMessage({ text: typingMessage }), [sendMessage, typingMessage]);
+
+  const onEnterSendMessage = (e: KeyboardEvent) => {
+    if (typingMessage && !sendingMessage && (e.code === "Enter" || e.code === "NumpadEnter")) {
+      handleSendMessage();
+    }
+  };
+  const onClickSendMessage = () => {
+    handleSendMessage();
+  };
 
   useEffect(() => {
     if (conversations) {
@@ -81,22 +110,26 @@ const Conversation = ({ goAccountSelection, accountId }: { accountId: string; go
           .conversation {
             display: grid;
             grid-template-rows: auto 1fr auto;
+            overflow: auto;
           }
 
           .conversation-meta {
             border-bottom: 1px solid rgba(255, 255, 255, 0.16);
             padding: 1rem;
+            flex-basic: 80px;
           }
 
           .conversation-container {
             border-bottom: 1px solid rgba(255, 255, 255, 0.16);
             padding: 1rem;
             display: flex;
-            flex-direction: column;
-            justify-content: flex-end;
+            flex-direction: column-reverse;
+            justify-content: flex-start;
+            overflow-y: scroll;
           }
 
           .conversation-toolbar {
+            flex-basic: 50px;
             height: auto;
             display: flex;
           }
@@ -202,8 +235,16 @@ const Conversation = ({ goAccountSelection, accountId }: { accountId: string; go
               )}
           </div>
           <div className="conversation-toolbar">
-            <input type="text" className="conversation-input" />
-            <button className="send-message">Send</button>
+            <input
+              type="text"
+              className="conversation-input"
+              onChange={(e) => setTypingMessage(e.target.value)}
+              onKeyUp={onEnterSendMessage}
+              value={typingMessage}
+            />
+            <button className="send-message" disabled={sendingMessage || !typingMessage} onClick={onClickSendMessage}>
+              Send
+            </button>
           </div>
         </div>
       </div>

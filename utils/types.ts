@@ -5,6 +5,8 @@ export interface RequestConversations {
 export interface RequestMessages {
   accountId: string;
   conversationId: string | undefined;
+  autoFetch?: boolean;
+  onCompleted?: Function;
 }
 
 export interface SendMessage extends RequestMessages {

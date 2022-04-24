@@ -24,3 +24,10 @@ export interface PaginatedResponse<T> {
   cursor_next: string | null;
   cursor_prev: string | null;
 }
+
+export interface SendingMessage {
+  id: string;
+  sender: User;
+  text: string;
+  ts: number;
+}

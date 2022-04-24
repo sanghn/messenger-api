@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { RequestConversations, RequestMessages, SendMessage } from "./types";
 import { PaginatedResponse, Conversation, Message } from "../types/api";
@@ -20,34 +20,56 @@ export const useConversations = ({ accountId }: RequestConversations) => {
   return conversations;
 };
 
-export const useMessages = ({ accountId, conversationId }: RequestMessages) => {
-  const [messages, setMessages] = useState<PaginatedResponse<Message> | null>(null);
+export const useMessages = ({ accountId, conversationId, autoFetch }: RequestMessages) => {
+  const [data, setData] = useState<PaginatedResponse<Message> | null>(null);
+  const [loading, setLoading] = useState<boolean>(false);
+
+  const fetchData = useCallback(
+    () =>
+      getMessages({ accountId, conversationId })
+        .then((res) => {
+          setData(res.data);
+          setLoading(false);
+        })
+        .catch(() => {
+          setData(null);
+          setLoading(false);
+        }),
+    [accountId, conversationId]
+  );
 
   useEffect(() => {
-    getMessages({ accountId, conversationId })
-      .then((res) => {
-        setMessages(res.data);
-      })
-      .catch(() => {
-        setMessages(null);
-      });
-  }, [accountId, conversationId]);
+    if (autoFetch) {
+      fetchData();
+    }
+  }, [autoFetch, fetchData]);
 
-  return messages;
+  return { fetchData, data, loading };
 };
 
-export const useSendMessage = ({ accountId, conversationId, text }: SendMessage) => {
-  const [messages, setMessages] = useState<PaginatedResponse<Message> | null>(null);
+export const useSendMessage = ({ accountId, conversationId, onCompleted }: RequestMessages) => {
+  const [data, setData] = useState<Message | null>(null);
+  const [loading, setLoading] = useState<boolean>(false);
+  const fetchData = useCallback(
+    ({ text }: { text: string }) => {
+      setLoading(true);
+      sendMessage({ accountId, conversationId, text })
+        .then((res) => {
+          setData(res.data);
+          setLoading(false);
+          if (onCompleted) onCompleted();
+        })
+        .catch(() => {
+          setData(null);
+          setLoading(false);
+        });
+    },
+    [accountId, conversationId, onCompleted]
+  );
 
-  useEffect(() => {
-    sendMessage({ accountId, conversationId, text })
-      .then((res) => {
-        setMessages(res.data);
-      })
-      .catch(() => {
-        setMessages(null);
-      });
-  }, [accountId, conversationId, text]);
-
-  return messages;
+  return {
+    fetchData,
+    loading,
+    data,
+  };
 };
